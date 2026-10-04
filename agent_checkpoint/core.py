@@ -23,11 +23,13 @@ class AgentCheckpoint:
         The state object is serialized using pickle.
         """
         serialized_state = pickle.dumps(state)
-        timestamp = datetime.datetime.now()
+        timestamp = datetime.datetime.now().isoformat() # Store as ISO format string for easier DB handling
         with self.db_manager.connect() as conn:
             cursor = conn.cursor()
+            # With the new schema, we insert a new record each time.
+            # The 'UNIQUE(id, timestamp)' constraint handles exact duplicates.
             cursor.execute(
-                "INSERT OR REPLACE INTO checkpoints (id, timestamp, state) VALUES (?, ?, ?)",
+                "INSERT INTO checkpoints (id, timestamp, state) VALUES (?, ?, ?)",
                 (agent_id, timestamp, serialized_state)
             )
             conn.commit()
@@ -40,6 +42,7 @@ class AgentCheckpoint:
         """
         with self.db_manager.connect() as conn:
             cursor = conn.cursor()
+            # Order by timestamp DESC to get the latest, limit 1.
             cursor.execute(
                 "SELECT id, timestamp, state FROM checkpoints WHERE id = ? ORDER BY timestamp DESC LIMIT 1",
                 (agent_id,)
